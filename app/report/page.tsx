@@ -16,9 +16,35 @@ export default function ReportGeneratorPage() {
 
   const handleGenerate = async () => {
     setIsGenerating(true)
-    await new Promise((resolve) => setTimeout(resolve, 600))
-    sessionStorage.setItem("impactOS_reportType", reportType)
-    router.push("/report/view")
+
+    try {
+      const response = await fetch("/api/generateReport", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reportType }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate report")
+      }
+
+      // Store the generated report and navigate
+      sessionStorage.setItem("impactOS_reportType", reportType)
+      sessionStorage.setItem("impactOS_reportContent", data.content)
+      if (data.reportId) {
+        sessionStorage.setItem("impactOS_reportId", data.reportId)
+      }
+
+      router.push("/report/view")
+    } catch (error: any) {
+      console.error("Error generating report:", error)
+      alert(error.message || "Failed to generate report")
+      setIsGenerating(false)
+    }
   }
 
   return (
@@ -79,20 +105,20 @@ export default function ReportGeneratorPage() {
           </Label>
 
           <Label
-            htmlFor="1on1"
+            htmlFor="one_on_one"
             className={`flex items-center gap-4 p-5 bg-card border rounded-xl cursor-pointer transition-all duration-300 ${
-              reportType === "1on1"
+              reportType === "one_on_one"
                 ? "border-primary shadow-sm ring-1 ring-primary/20"
                 : "border-border hover:border-primary/30"
             }`}
           >
-            <RadioGroupItem value="1on1" id="1on1" className="sr-only" />
+            <RadioGroupItem value="one_on_one" id="one_on_one" className="sr-only" />
             <div
               className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors ${
-                reportType === "1on1" ? "bg-primary/20" : "bg-muted"
+                reportType === "one_on_one" ? "bg-primary/20" : "bg-muted"
               }`}
             >
-              <Users className={`h-5 w-5 ${reportType === "1on1" ? "text-primary" : "text-muted-foreground"}`} />
+              <Users className={`h-5 w-5 ${reportType === "one_on_one" ? "text-primary" : "text-muted-foreground"}`} />
             </div>
             <div className="flex-1">
               <span className="font-semibold text-foreground">1:1 Prep</span>
@@ -100,10 +126,10 @@ export default function ReportGeneratorPage() {
             </div>
             <div
               className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                reportType === "1on1" ? "border-primary bg-primary" : "border-border"
+                reportType === "one_on_one" ? "border-primary bg-primary" : "border-border"
               }`}
             >
-              {reportType === "1on1" && <div className="w-2 h-2 bg-primary-foreground rounded-full" />}
+              {reportType === "one_on_one" && <div className="w-2 h-2 bg-primary-foreground rounded-full" />}
             </div>
           </Label>
         </RadioGroup>

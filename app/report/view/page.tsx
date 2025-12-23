@@ -2,15 +2,10 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import ReactMarkdown from "react-markdown"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Copy, Share2, Check, FileText, Users } from "lucide-react"
 import { Capybara } from "@/components/capybara"
-
-interface Entry {
-  id: number
-  date: string
-  content: string
-}
 
 export default function ReportViewerPage() {
   const [report, setReport] = useState("")
@@ -19,46 +14,16 @@ export default function ReportViewerPage() {
 
   useEffect(() => {
     const type = sessionStorage.getItem("impactOS_reportType") || "weekly"
+    const content = sessionStorage.getItem("impactOS_reportContent")
+
     setReportType(type)
 
-    const stored = localStorage.getItem("impactOS_entries")
-    const entries: Entry[] = stored ? JSON.parse(stored) : []
-
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
-    const recentEntries = entries.filter((e) => new Date(e.date) >= sevenDaysAgo)
-
-    if (recentEntries.length === 0) {
-      setReport("No entries found in the past 7 days.\n\nLog your work to generate a report.")
-      return
-    }
-
-    if (type === "weekly") {
-      setReport(generateWeeklyReport(recentEntries))
+    if (content) {
+      setReport(content)
     } else {
-      setReport(generate1on1Report(recentEntries))
+      setReport("No report generated. Please go back and generate a report.")
     }
   }, [])
-
-  const generateWeeklyReport = (entries: Entry[]) => {
-    const header = "WEEKLY SUMMARY\n" + "─".repeat(30) + "\n\n"
-    const content = entries
-      .map((e) => {
-        const date = new Date(e.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
-        return `${date}\n${e.content}`
-      })
-      .join("\n\n• • •\n\n")
-
-    return header + content
-  }
-
-  const generate1on1Report = (entries: Entry[]) => {
-    const header = "1:1 MEETING PREP\n" + "─".repeat(30) + "\n\n"
-    const accomplishments = "ACCOMPLISHMENTS:\n" + entries.map((e) => `  • ${e.content.split("\n")[0]}`).join("\n")
-
-    return header + accomplishments + "\n\n\nDISCUSSION POINTS:\n  • [Add your discussion topics here]"
-  }
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(report)
@@ -68,10 +33,19 @@ export default function ReportViewerPage() {
 
   const handleShare = async () => {
     if (navigator.share) {
-      await navigator.share({
-        title: reportType === "weekly" ? "Weekly Summary" : "1:1 Prep",
-        text: report,
-      })
+      try {
+        await navigator.share({
+          title: reportType === "weekly" ? "Weekly Summary" : "1:1 Prep",
+          text: report,
+        })
+      } catch (error: any) {
+        // Ignore AbortError (user canceled) and InvalidStateError (share already in progress)
+        if (error.name !== "AbortError" && error.name !== "InvalidStateError") {
+          console.error("Share error:", error)
+          // Fallback to copy if share fails for other reasons
+          handleCopy()
+        }
+      }
     } else {
       handleCopy()
     }
@@ -104,8 +78,28 @@ export default function ReportViewerPage() {
           </div>
         </div>
 
-        <div className="p-5 bg-card border border-border rounded-2xl shadow-sm">
-          <pre className="text-sm text-foreground whitespace-pre-wrap font-mono leading-relaxed">{report}</pre>
+        <div className="p-6 bg-card border border-border rounded-2xl shadow-sm">
+          <ReactMarkdown
+            components={{
+              h2: ({ children }) => (
+                <h2 className="text-lg font-bold text-foreground mt-6 mb-3 first:mt-0">{children}</h2>
+              ),
+              p: ({ children }) => (
+                <p className="text-foreground mb-3 leading-relaxed">{children}</p>
+              ),
+              ul: ({ children }) => (
+                <ul className="list-disc list-inside space-y-1.5 mb-4 ml-1">{children}</ul>
+              ),
+              li: ({ children }) => (
+                <li className="text-foreground leading-relaxed">{children}</li>
+              ),
+              strong: ({ children }) => (
+                <strong className="font-semibold text-foreground">{children}</strong>
+              ),
+            }}
+          >
+            {report}
+          </ReactMarkdown>
         </div>
 
         <div className="flex gap-3">

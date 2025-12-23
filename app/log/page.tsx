@@ -7,34 +7,39 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, Check, Sparkles } from "lucide-react"
 import { Capybara } from "@/components/capybara"
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/lib/auth-context"
 
 export default function DailyLogPage() {
   const [content, setContent] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
+  const { user } = useAuth()
 
   const handleSave = async () => {
-    if (!content.trim()) return
+    if (!content.trim() || !user) return
 
     setIsSaving(true)
+    setError("")
 
-    const existingEntries = JSON.parse(localStorage.getItem("impactOS_entries") || "[]")
+    try {
+      const { error: insertError } = await supabase.from("entries").insert({
+        user_id: user.id,
+        content: content.trim(),
+      })
 
-    const newEntry = {
-      id: Date.now(),
-      date: new Date().toISOString(),
-      content: content.trim(),
+      if (insertError) throw insertError
+
+      setSaved(true)
+      await new Promise((resolve) => setTimeout(resolve, 800))
+
+      router.push("/timeline")
+    } catch (err: any) {
+      setError(err.message || "Failed to save entry")
+      setIsSaving(false)
     }
-
-    localStorage.setItem("impactOS_entries", JSON.stringify([newEntry, ...existingEntries]))
-
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
-    setSaved(true)
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    router.push("/timeline")
   }
 
   return (
@@ -78,6 +83,12 @@ export default function DailyLogPage() {
               <Capybara mood="excited" size={40} />
               <span className="italic">{'"Looking good!"'}</span>
             </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <p className="text-sm text-destructive">{error}</p>
           </div>
         )}
 

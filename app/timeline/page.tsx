@@ -4,22 +4,40 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Calendar } from "lucide-react"
 import { Capybara } from "@/components/capybara"
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/lib/auth-context"
 
 interface Entry {
-  id: number
-  date: string
+  id: string
+  created_at: string
   content: string
 }
 
 export default function TimelinePage() {
   const [entries, setEntries] = useState<Entry[]>([])
+  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
 
   useEffect(() => {
-    const stored = localStorage.getItem("impactOS_entries")
-    if (stored) {
-      setEntries(JSON.parse(stored))
+    const fetchEntries = async () => {
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from("entries")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Error fetching entries:", error)
+      } else {
+        setEntries(data || [])
+      }
+      setLoading(false)
     }
-  }, [])
+
+    fetchEntries()
+  }, [user])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -28,6 +46,14 @@ export default function TimelinePage() {
       month: "short",
       day: "numeric",
     })
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen px-4 py-8 flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </main>
+    )
   }
 
   const getPreview = (content: string) => {
@@ -74,13 +100,13 @@ export default function TimelinePage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {entries.map((entry, index) => (
+            {entries.map((entry) => (
               <Link key={entry.id} href={`/timeline/${entry.id}`} className="group block">
                 <div className="p-4 bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-md transition-all duration-300">
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 w-2 h-2 mt-2 bg-primary/60 rounded-full group-hover:bg-primary transition-colors" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground mb-1 font-medium">{formatDate(entry.date)}</p>
+                      <p className="text-xs text-muted-foreground mb-1 font-medium">{formatDate(entry.created_at)}</p>
                       <p className="text-sm text-foreground leading-relaxed">{getPreview(entry.content)}</p>
                     </div>
                   </div>

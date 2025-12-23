@@ -6,10 +6,12 @@ import Link from "next/link"
 import { ArrowLeft, Calendar, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/lib/auth-context"
 
 interface Entry {
-  id: number
-  date: string
+  id: string
+  created_at: string
   content: string
 }
 
@@ -17,15 +19,30 @@ export default function EntryDetailPage() {
   const params = useParams()
   const router = useRouter()
   const [entry, setEntry] = useState<Entry | null>(null)
+  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
 
   useEffect(() => {
-    const stored = localStorage.getItem("impactOS_entries")
-    if (stored) {
-      const entries: Entry[] = JSON.parse(stored)
-      const found = entries.find((e) => e.id === Number(params.id))
-      setEntry(found || null)
+    const fetchEntry = async () => {
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from("entries")
+        .select("*")
+        .eq("id", params.id)
+        .eq("user_id", user.id)
+        .single()
+
+      if (error) {
+        console.error("Error fetching entry:", error)
+      } else {
+        setEntry(data)
+      }
+      setLoading(false)
     }
-  }, [params.id])
+
+    fetchEntry()
+  }, [params.id, user])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -37,14 +54,24 @@ export default function EntryDetailPage() {
     })
   }
 
-  const handleDelete = () => {
-    const stored = localStorage.getItem("impactOS_entries")
-    if (stored) {
-      const entries: Entry[] = JSON.parse(stored)
-      const filtered = entries.filter((e) => e.id !== Number(params.id))
-      localStorage.setItem("impactOS_entries", JSON.stringify(filtered))
+  const handleDelete = async () => {
+    if (!user || !entry) return
+
+    const { error } = await supabase.from("entries").delete().eq("id", entry.id).eq("user_id", user.id)
+
+    if (error) {
+      console.error("Error deleting entry:", error)
+    } else {
       router.push("/timeline")
     }
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen px-4 py-8 flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </main>
+    )
   }
 
   if (!entry) {
@@ -84,7 +111,7 @@ export default function EntryDetailPage() {
         <div className="bg-card rounded-2xl shadow-sm border border-border p-6 space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full text-primary text-xs font-medium">
             <Calendar className="h-3 w-3" />
-            {formatDate(entry.date)}
+            {formatDate(entry.created_at)}
           </div>
           <p className="text-foreground whitespace-pre-wrap leading-relaxed">{entry.content}</p>
         </div>
