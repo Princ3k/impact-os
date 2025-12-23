@@ -35,21 +35,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { reportType } = await request.json()
+    const { reportType, dateRange } = await request.json()
 
     if (!reportType || !["weekly", "one_on_one"].includes(reportType)) {
       return NextResponse.json({ error: "Invalid report type" }, { status: 400 })
     }
 
-    // Fetch entries from the last 7 days
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    // Determine date range (default to 7 days if not provided)
+    const fromDate = dateRange?.from
+      ? new Date(dateRange.from)
+      : (() => {
+          const date = new Date()
+          date.setDate(date.getDate() - 7)
+          return date
+        })()
+
+    const toDate = dateRange?.to ? new Date(dateRange.to) : new Date()
 
     const { data: entries, error: fetchError } = await supabase
       .from("entries")
       .select("content, created_at")
       .eq("user_id", session.user.id)
-      .gte("created_at", sevenDaysAgo.toISOString())
+      .gte("created_at", fromDate.toISOString())
+      .lte("created_at", toDate.toISOString())
       .order("created_at", { ascending: false })
 
     if (fetchError) {
@@ -58,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     if (!entries || entries.length === 0) {
       return NextResponse.json(
-        { content: "No entries found in the past 7 days.\n\nLog your work to generate a report." },
+        { content: "No entries found in the selected date range.\n\nLog your work to generate a report." },
         { status: 200 }
       )
     }
@@ -82,34 +90,40 @@ export async function POST(request: NextRequest) {
     })
 
     const systemPrompt =
-      "You are a professional career assistant helping summarize work for a manager. Be concise, specific, and confident. Avoid buzzwords and fluff. Format your response using clean Markdown with proper headings (##), bold (**text**), and bullet points (-)."
+      "You are writing a professional work summary as if you're the person who did the work. Write in first person, be direct and conversational like you're talking to your manager in person. Avoid corporate buzzwords, don't over-explain, and don't make it sound AI-generated. Be confident but not boastful."
 
-    const userPrompt = `Here are my work logs:
+    const userPrompt = `Here are my work logs from the past period:
 
 ${formattedEntries}
 
-Create a ${reportType === "weekly" ? "weekly summary" : "1:1 meeting prep"} formatted in clean Markdown with:
+Write a ${reportType === "weekly" ? "concise weekly summary" : "focused 1:1 prep document"} that sounds natural and authentic. Structure it with these sections:
 
 ## What I Worked On
-(Brief bullet points of main activities)
+- List the main tasks and projects (2-4 bullet points max)
+- Be specific but brief - just the facts
 
 ## Key Wins
-(Notable achievements and completed work)
+- Highlight 2-3 concrete accomplishments
+- Focus on completed work and tangible results
+- Skip the fluff and self-promotion
 
 ## Impact
-(How this work moved the needle)
+- Explain how this work helps the team or product
+- 1-2 sentences per point, maximum 3 points
+- Be direct about the value created
 
-## Blockers
-(Any current challenges - omit this section if none)
-
+${formattedEntries.toLowerCase().includes('block') || formattedEntries.toLowerCase().includes('issue') || formattedEntries.toLowerCase().includes('problem') ? '## Blockers\n- List current challenges clearly\n- What help is needed (if any)\n' : ''}
 ## Next Steps
-(What's coming up next)
+- What's coming up next (2-3 items)
+- Keep it brief and actionable
 
-Use proper Markdown formatting:
-- Headings with ##
-- Bold important items with **text**
-- Clean bullet points with -
-- Professional, conversational tone`
+IMPORTANT:
+- Use ## for headings
+- Use - for bullet points
+- NO bold text (**) - just write naturally
+- Write like you're texting your manager, not writing a press release
+- Be conversational: "I worked on X" not "Successfully executed strategic initiative X"
+- If something was hard, say it was hard. If it's half-done, say that.`
 
     const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`)
     const reportContent = result.response.text()

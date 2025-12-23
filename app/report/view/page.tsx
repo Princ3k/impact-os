@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import ReactMarkdown from "react-markdown"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Copy, Share2, Check, FileText, Users } from "lucide-react"
 import { Capybara } from "@/components/capybara"
+import { MarkdownRenderer } from "@/components/markdown-renderer"
 
 export default function ReportViewerPage() {
   const [report, setReport] = useState("")
@@ -79,27 +79,7 @@ export default function ReportViewerPage() {
         </div>
 
         <div className="p-6 bg-card border border-border rounded-2xl shadow-sm">
-          <ReactMarkdown
-            components={{
-              h2: ({ children }) => (
-                <h2 className="text-lg font-bold text-foreground mt-6 mb-3 first:mt-0">{children}</h2>
-              ),
-              p: ({ children }) => (
-                <p className="text-foreground mb-3 leading-relaxed">{children}</p>
-              ),
-              ul: ({ children }) => (
-                <ul className="list-disc list-inside space-y-1.5 mb-4 ml-1">{children}</ul>
-              ),
-              li: ({ children }) => (
-                <li className="text-foreground leading-relaxed">{children}</li>
-              ),
-              strong: ({ children }) => (
-                <strong className="font-semibold text-foreground">{children}</strong>
-              ),
-            }}
-          >
-            {report}
-          </ReactMarkdown>
+          <MarkdownRenderer content={report} />
         </div>
 
         <div className="flex gap-3">

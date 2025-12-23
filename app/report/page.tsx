@@ -3,16 +3,31 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { subDays } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { ArrowLeft, FileText, Users, Sparkles } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ArrowLeft, FileText, Users, Sparkles, Calendar as CalendarIcon } from "lucide-react"
 import { Capybara } from "@/components/capybara"
+import type { DateRange } from "react-day-picker"
 
 export default function ReportGeneratorPage() {
   const [reportType, setReportType] = useState("weekly")
+  const [dateRangeType, setDateRangeType] = useState<"7days" | "30days" | "90days" | "custom">("7days")
+  const [customRange, setCustomRange] = useState<DateRange | undefined>()
   const [isGenerating, setIsGenerating] = useState(false)
   const router = useRouter()
+
+  const getDateRange = () => {
+    if (dateRangeType === "custom" && customRange?.from && customRange?.to) {
+      return { from: customRange.from, to: customRange.to }
+    }
+    const days = dateRangeType === "7days" ? 7 : dateRangeType === "30days" ? 30 : 90
+    const from = subDays(new Date(), days)
+    return { from, to: new Date() }
+  }
 
   const handleGenerate = async () => {
     setIsGenerating(true)
@@ -23,7 +38,7 @@ export default function ReportGeneratorPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ reportType }),
+        body: JSON.stringify({ reportType, dateRange: getDateRange() }),
       })
 
       const data = await response.json()
@@ -134,9 +149,87 @@ export default function ReportGeneratorPage() {
           </Label>
         </RadioGroup>
 
+        <div className="space-y-3">
+          <Label className="text-sm font-semibold">Date Range</Label>
+          <RadioGroup value={dateRangeType} onValueChange={(value: any) => setDateRangeType(value)} className="space-y-2">
+            <Label
+              htmlFor="7days"
+              className={`flex items-center gap-3 p-3 bg-card border rounded-lg cursor-pointer transition-colors ${
+                dateRangeType === "7days" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+              }`}
+            >
+              <RadioGroupItem value="7days" id="7days" />
+              <span className="text-sm">Last 7 days</span>
+            </Label>
+
+            <Label
+              htmlFor="30days"
+              className={`flex items-center gap-3 p-3 bg-card border rounded-lg cursor-pointer transition-colors ${
+                dateRangeType === "30days" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+              }`}
+            >
+              <RadioGroupItem value="30days" id="30days" />
+              <span className="text-sm">Last 30 days</span>
+            </Label>
+
+            <Label
+              htmlFor="90days"
+              className={`flex items-center gap-3 p-3 bg-card border rounded-lg cursor-pointer transition-colors ${
+                dateRangeType === "90days" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+              }`}
+            >
+              <RadioGroupItem value="90days" id="90days" />
+              <span className="text-sm">Last 90 days</span>
+            </Label>
+
+            <Label
+              htmlFor="custom"
+              className={`flex items-center gap-3 p-3 bg-card border rounded-lg cursor-pointer transition-colors ${
+                dateRangeType === "custom" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+              }`}
+            >
+              <RadioGroupItem value="custom" id="custom" />
+              <span className="text-sm">Custom range</span>
+            </Label>
+          </RadioGroup>
+
+          {dateRangeType === "custom" && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={`w-full justify-start text-left font-normal ${
+                    !customRange?.from && "text-muted-foreground"
+                  }`}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {customRange?.from ? (
+                    customRange.to ? (
+                      <>
+                        {customRange.from.toLocaleDateString()} - {customRange.to.toLocaleDateString()}
+                      </>
+                    ) : (
+                      customRange.from.toLocaleDateString()
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  selected={customRange}
+                  onSelect={setCustomRange}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+
         <Button
           onClick={handleGenerate}
-          disabled={isGenerating}
+          disabled={isGenerating || (dateRangeType === "custom" && (!customRange?.from || !customRange?.to))}
           className="w-full h-12 text-base font-medium rounded-xl shadow-sm"
           size="lg"
         >
@@ -149,6 +242,16 @@ export default function ReportGeneratorPage() {
             "Generate report"
           )}
         </Button>
+
+        <nav className="pt-4 border-t border-border">
+          <Link
+            href="/report/history"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors font-medium"
+          >
+            <FileText className="h-4 w-4" />
+            View past reports
+          </Link>
+        </nav>
       </div>
     </main>
   )
