@@ -11,6 +11,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Impact OS",
   description: "Track your work. Show your impact.",
+  metadataBase: new URL("https://getimpactos.com"),
   generator: "v0.app",
   icons: {
     icon: [
