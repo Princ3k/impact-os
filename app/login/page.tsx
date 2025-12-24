@@ -42,7 +42,7 @@ export default function LoginPage() {
 
         if (signInError) throw signInError
 
-        router.push("/dashboard")
+        router.push("/")
       } else {
         // Sign in
         const { error } = await supabase.auth.signInWithPassword({
@@ -52,7 +52,7 @@ export default function LoginPage() {
 
         if (error) throw error
 
-        router.push("/dashboard")
+        router.push("/")
       }
     } catch (error: any) {
       console.error("Auth error:", error)
