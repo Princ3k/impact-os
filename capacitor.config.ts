@@ -5,9 +5,20 @@ const config: CapacitorConfig = {
   appName: 'Impact OS',
   webDir: 'out',
   server: {
-    // For development, you can use:
-    // url: 'http://localhost:3000',
-    // cleartext: true
+    // Use local dev server for development and testing
+    url: 'http://localhost:3000',
+    cleartext: true,
+    // For production builds, comment out the url above
+  },
+  ios: {
+    // Enable swipe-to-go-back gesture
+    contentInset: 'always',
+    scrollEnabled: true,
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 0
+    }
   }
 };
 
