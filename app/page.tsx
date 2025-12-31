@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, CheckCircle2, Sparkles, History } from "lucide-react"
+import { ArrowRight, CheckCircle2, Sparkles, History, MessageSquare } from "lucide-react"
 import { Capybara } from "@/components/capybara"
 import { useAuth } from "@/lib/auth-context"
 import { Feature } from "@/components/ui/feature-section-with-bento-grid"
@@ -49,6 +49,21 @@ export default function LandingPage() {
                     <p className="text-sm text-muted-foreground">Capture what you accomplished</p>
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                </div>
+              </div>
+            </Link>
+
+            <Link href="/standup" className="group">
+              <div className="p-6 bg-card rounded-2xl shadow-sm border border-border hover:shadow-md hover:border-blue-500/30 transition-all duration-300">
+                <div className="flex items-center gap-4">
+                  <div className="flex-shrink-0 w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                    <MessageSquare className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <h2 className="font-semibold text-foreground">Generate Standup</h2>
+                    <p className="text-sm text-muted-foreground">Create daily standup update</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
                 </div>
               </div>
             </Link>
