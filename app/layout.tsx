@@ -13,15 +13,23 @@ export const metadata: Metadata = {
   description: "Track your work. Show your impact.",
   metadataBase: new URL("https://getimpactos.com"),
   generator: "v0.app",
+  manifest: "/manifest.json",
   icons: {
     icon: [
       {
         url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
+        sizes: "32x32",
+        type: "image/png",
       },
       {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
+        url: "/icon-192x192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/icon-512x512.png",
+        sizes: "512x512",
+        type: "image/png",
       },
       {
         url: "/icon.svg",
