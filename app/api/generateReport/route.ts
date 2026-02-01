@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
+import { checkRateLimit, incrementRateLimit } from "@/lib/api-utils"
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
@@ -35,6 +36,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const userId = session.user.id
+
+    // Check rate limit
+    const { allowed, remaining } = await checkRateLimit(supabase, userId, "report")
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Daily limit reached. Try again tomorrow.", remaining: 0 },
+        { status: 429 }
+      )
+    }
+
     const { reportType, dateRange } = await request.json()
 
     if (!reportType || !["weekly", "one_on_one"].includes(reportType)) {
@@ -55,7 +67,7 @@ export async function POST(request: NextRequest) {
     const { data: entries, error: fetchError } = await supabase
       .from("entries")
       .select("content, created_at")
-      .eq("user_id", session.user.id)
+      .eq("user_id", userId)
       .gte("created_at", fromDate.toISOString())
       .lte("created_at", toDate.toISOString())
       .order("created_at", { ascending: false })
@@ -66,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     if (!entries || entries.length === 0) {
       return NextResponse.json(
-        { content: "No entries found in the selected date range.\n\nLog your work to generate a report." },
+        { content: "No entries found in the selected date range.\n\nLog your work to generate a report.", remaining },
         { status: 200 }
       )
     }
@@ -81,57 +93,42 @@ export async function POST(request: NextRequest) {
         })
         return `${date}: ${entry.content}`
       })
-      .join("\n\n")
+      .join("\n")
 
-    // Generate report using Gemini
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash"
-    })
+    // Generate report with optimized prompt
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
 
-    const systemPrompt =
-      "You are writing a professional work summary as if you're the person who did the work. Write in first person, be direct and conversational like you're talking to your manager in person. Avoid corporate buzzwords, don't over-explain, and don't make it sound AI-generated. Be confident but not boastful."
+    const isWeekly = reportType === "weekly"
+    const hasBlockers =
+      formattedEntries.toLowerCase().includes("block") ||
+      formattedEntries.toLowerCase().includes("issue") ||
+      formattedEntries.toLowerCase().includes("problem")
 
-    const userPrompt = `Here are my work logs from the past period:
+    // Optimized prompt: ~50% fewer tokens
+    const prompt = `Write a ${isWeekly ? "weekly summary" : "1:1 prep doc"} from these work logs. First person, conversational, no buzzwords.
 
 ${formattedEntries}
 
-Write a ${reportType === "weekly" ? "concise weekly summary" : "focused 1:1 prep document"} that sounds natural and authentic. Structure it with these sections:
+Sections (## headings, - bullets, no **bold**):
+## What I Worked On (2-4 items)
+## Key Wins (2-3 concrete results)
+## Impact (1-2 sentences each, max 3)
+${hasBlockers ? "## Blockers (challenges, help needed)" : ""}
+## Next Steps (2-3 actionable items)
 
-## What I Worked On
-- List the main tasks and projects (2-4 bullet points max)
-- Be specific but brief - just the facts
+Be direct. Say "I worked on X" not "Successfully executed X".`
 
-## Key Wins
-- Highlight 2-3 concrete accomplishments
-- Focus on completed work and tangible results
-- Skip the fluff and self-promotion
-
-## Impact
-- Explain how this work helps the team or product
-- 1-2 sentences per point, maximum 3 points
-- Be direct about the value created
-
-${formattedEntries.toLowerCase().includes('block') || formattedEntries.toLowerCase().includes('issue') || formattedEntries.toLowerCase().includes('problem') ? '## Blockers\n- List current challenges clearly\n- What help is needed (if any)\n' : ''}
-## Next Steps
-- What's coming up next (2-3 items)
-- Keep it brief and actionable
-
-IMPORTANT:
-- Use ## for headings
-- Use - for bullet points
-- NO bold text (**) - just write naturally
-- Write like you're texting your manager, not writing a press release
-- Be conversational: "I worked on X" not "Successfully executed strategic initiative X"
-- If something was hard, say it was hard. If it's half-done, say that.`
-
-    const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`)
+    const result = await model.generateContent(prompt)
     const reportContent = result.response.text()
+
+    // Increment rate limit
+    await incrementRateLimit(supabase, userId, "report")
 
     // Save report to database
     const { data: savedReport, error: saveError } = await supabase
       .from("reports")
       .insert({
-        user_id: session.user.id,
+        user_id: userId,
         type: reportType,
         content: reportContent,
       })
@@ -140,12 +137,12 @@ IMPORTANT:
 
     if (saveError) {
       console.error("Failed to save report:", saveError)
-      // Still return the generated content even if save fails
     }
 
     return NextResponse.json({
       content: reportContent,
       reportId: savedReport?.id,
+      remaining: remaining - 1,
     })
   } catch (error: any) {
     console.error("Error generating report:", error)
