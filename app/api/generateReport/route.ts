@@ -84,9 +84,8 @@ export async function POST(request: NextRequest) {
       .join("\n\n")
 
     // Generate report using Gemini
-    // Using gemini-2.0-flash-exp (free tier model available in 2025)
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash-exp"
+      model: "gemini-2.0-flash"
     })
 
     const systemPrompt =
